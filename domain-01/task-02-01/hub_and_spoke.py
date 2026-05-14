@@ -4,6 +4,7 @@ Hub-and-Spoke Architecture POC
 Architecture:
   [User] → [Hub Agent] → [Spoke: Researcher]
                        → [Spoke: Critic]
+                       → [Spoke: Practitioner]
                        ← [Synthesized Response]
 
 The hub orchestrates by decomposing a task and delegating to
@@ -25,6 +26,9 @@ SPOKE_REGISTRY = {
                   "evidence-based information only. No opinions.",
     "critic": "You are a critical analyst. Identify limitations, "
               "counterarguments, and nuances. Be concise.",
+    "practitioner": "You are a hands-on practitioner. Provide actionable, "
+                    "real-world implementation advice, best practices, and "
+                    "concrete examples from industry experience. Be practical.",
 }
 
 HUB_DECOMPOSITION_PROMPT = """You are a hub orchestrator agent. Given a user query, decide which specialist spokes to invoke and what task to give each one.
@@ -52,6 +56,7 @@ def hub_decompose(user_query: str) -> dict[str, str]:
         system=HUB_DECOMPOSITION_PROMPT.format(spoke_names=spoke_names),
         messages=[{"role": "user", "content": user_query}],
     )
+    print(f" Model response from hub: {response} \n")
     raw = response.content[0].text.strip()
     assignments = json.loads(raw)
 
@@ -70,6 +75,7 @@ def call_spoke(spoke_name: str, task: str) -> str:
         system=SPOKE_REGISTRY[spoke_name],
         messages=[{"role": "user", "content": task}],
     )
+    print(f" Model response from {spoke_name} spoke: {response} \n")
     return response.content[0].text
 
 
@@ -88,6 +94,7 @@ def hub_synthesize(spoke_outputs: dict[str, str], original_query: str) -> str:
         system=HUB_SYNTHESIS_PROMPT,
         messages=[{"role": "user", "content": synthesis_prompt}],
     )
+    print(f" Model response from hub synthesis: {response} \n")
     return response.content[0].text
 
 
