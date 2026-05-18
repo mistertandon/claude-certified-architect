@@ -144,10 +144,10 @@ def run_subagent(agent_type: str, prompt: str) -> str:
     """
     tools = SUBAGENT_TOOLS.get(agent_type, [])
     messages = [{"role": "user", "content": prompt}]
-
+    print(f"------------ Running subagent of type '{agent_type}' ------------")
     print(f"    [{agent_type}] tools available: {[t['name'] for t in tools]}")
-
     while True:
+        print(f"    Messages : {messages}\n")
         response = client.messages.create(
             model=MODEL,
             max_tokens=1024,
@@ -155,6 +155,7 @@ def run_subagent(agent_type: str, prompt: str) -> str:
             messages=messages
         )
 
+        print(f"    Model (Subagent) {agent_type} response: {response}\n")
         if response.stop_reason == "end_turn":
             break
 
@@ -162,8 +163,9 @@ def run_subagent(agent_type: str, prompt: str) -> str:
         tool_results = []
         for block in response.content:
             if block.type == "tool_use":
-                print(f"    [{agent_type}] calling tool: {block.name}({json.dumps(block.input)[:80]})")
+                print(f"    [{agent_type}] calling tool: {block.name}({json.dumps(block.input)})")
                 result = execute_tool(block.name, block.input)
+                print(f"    [{agent_type}] execute tool result: {result}\n")
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,
@@ -210,7 +212,7 @@ def run_parent_agent():
         tools=[task_tool],   # Task MUST be listed here to enable subagent spawning
         messages=messages
     )
-
+    print(f"=== Parent Agent: Initial Response === {response} \n")
     # Collect all tool_use blocks, then append the assistant message ONCE
     task_calls = []
     for block in response.content:
@@ -231,11 +233,12 @@ def run_parent_agent():
     for block in task_calls:
         task_input = block.input
         agent_type = task_input["agent_type"]
+        print(f"    Task input: {task_input}\n")
         print(f"--- Spawning subagent: {task_input['description']} (type={agent_type}) ---")
-        print(f"    Prompt: {task_input['prompt'][:100]}...")
+
 
         result = run_subagent(agent_type, task_input["prompt"])
-        print(f"    Result: {result[:200]}\n")
+        print(f"    Result: {result}\n")
 
         tool_results.append({
             "type": "tool_result",
@@ -254,6 +257,7 @@ def run_parent_agent():
         messages=messages
     )
 
+    print(f"    Final result: {final}\n")
     print("=== Final Synthesis ===")
     for block in final.content:
         if block.type == "text":
