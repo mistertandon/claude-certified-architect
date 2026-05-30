@@ -10,10 +10,13 @@ Demonstrates the full coordinator → parallel dispatch → synthesis pattern:
 
 import asyncio
 import json
+import os
+from dotenv import load_dotenv
 import time
 from anthropic import AsyncAnthropic
 
-client = AsyncAnthropic()
+load_dotenv()
+client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 TASK_TOOL = {
     "name": "Task",
@@ -51,7 +54,7 @@ async def coordinator_turn() -> list[dict]:
     in a single response — each one is a Task call for a subagent.
     """
     response = await client.messages.create(
-        model="claude-sonnet-4-6-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=1024,
         system=(
             "You are a coordinator agent. You delegate work to specialist "
@@ -61,12 +64,13 @@ async def coordinator_turn() -> list[dict]:
         tools=[TASK_TOOL],
         messages=[{"role": "user", "content": COORDINATOR_GOAL}],
     )
+    print(f"coordinator_turn -> Coordinator response : {response}\n")
 
     tool_calls = [block for block in response.content if block.type == "tool_use"]
+    print(f"coordinator_turn -> Tool calls : {tool_calls}\n")
 
-    print(f"\n{'='*60}")
-    print(f"  Coordinator emitted {len(tool_calls)} Task calls in ONE response")
-    print(f"{'='*60}")
+    print(f"coordinator_turn ->  Coordinator emitted {len(tool_calls)} Task calls in ONE response")
+
     for tc in tool_calls:
         print(f"  → Task(agent={tc.input['agent_name']})")
 
@@ -82,11 +86,13 @@ async def run_subagent(tool_call) -> dict:
     prompt = tool_call.input["prompt"]
 
     response = await client.messages.create(
-        model="claude-sonnet-4-6-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=200,
         system=f"You are a specialized '{agent_name}' agent. Be concise.",
         messages=[{"role": "user", "content": prompt}],
     )
+    print(f"run_subagent -> Subagent response : {response}\n")
+
     return {
         "tool_use_id": tool_call.id,
         "agent": agent_name,
@@ -109,7 +115,7 @@ async def synthesize(tool_calls, subagent_results) -> str:
     ]
 
     response = await client.messages.create(
-        model="claude-sonnet-4-6-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=512,
         system="You are a coordinator agent. Synthesize the subagent results into a brief summary.",
         tools=[TASK_TOOL],
@@ -119,6 +125,8 @@ async def synthesize(tool_calls, subagent_results) -> str:
             {"role": "user", "content": tool_result_blocks},
         ],
     )
+    print(f"synthesize -> Coordinator response : {response}\n")
+
     return response.content[0].text
 
 
@@ -136,21 +144,18 @@ async def run_parallel():
     # Step 2 — runtime dispatches ALL tasks concurrently
     start = time.perf_counter()
     subagent_results = await asyncio.gather(*[run_subagent(tc) for tc in tool_calls])
+    print(f"run_parallel -> Subagent results : {subagent_results}\n")
+
     elapsed = time.perf_counter() - start
 
-    print(f"\n{'='*60}")
     print(f"  Parallel Dispatch Complete — {elapsed:.2f}s for {len(subagent_results)} subagents")
-    print(f"{'='*60}\n")
 
     for r in subagent_results:
         print(f"  [{r['agent']}]\n  → {r['result']}\n")
 
     # Step 3 — coordinator synthesizes all results
     summary = await synthesize(tool_calls, subagent_results)
-    print(f"{'='*60}")
-    print(f"  Coordinator Synthesis")
-    print(f"{'='*60}")
-    print(f"  {summary}\n")
+    print(f"run_parallel -> Coordinator synthesis : {summary}\n")
 
 
 if __name__ == "__main__":
