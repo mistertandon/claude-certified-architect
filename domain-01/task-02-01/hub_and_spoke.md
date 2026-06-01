@@ -386,7 +386,216 @@ then microservices often introduce more complexity than value.
 [Hub] Dispatching to spoke: practitioner
  Model response from practitioner spoke:
  ```
- Message(id='msg_01Wvup36sx4AxauuDL1dgH5R', container=None, content=[TextBlock(citations=None, text='# Microservices Architecture: Practical Implementation Guide\n\n## Starting Point: The Hard Truth\n\nMost teams underestimate microservices complexity by 3-5x. Before starting, answer honestly: Do you have the operational maturity to run distributed systems? Netflix took years and hundreds of engineers to perfect this. Start with a **modular monolith** and extract services only when you have clear, painful reasons to do so.\n\n---\n\n## Phase 1: Decomposition Strategy\n\n### Identify Service Boundaries (Domain-Driven Design)\n\n```\nBounded Context Mapping Exercise:\n1. Workshop with domain experts (2-3 days)\n2. Map business capabilities, NOT technical layers\n3. Identify where teams own what\n\nBAD decomposition (technical layers):\n├── UserInterfaceService\n├── BusinessLogicService\n└── DatabaseService\n\nGOOD decomposition (business capabilities):\n├── OrderManagement\n├── InventoryService\n├── PaymentProcessing\n├── NotificationService\n└── CustomerProfile\n```\n\n### The Strangler Fig Pattern (Real Migration Approach)\n\n```\nPhase 1: Route new feature to microservice\n┌─────────────────────────────────────┐\n│           API Gateway/Proxy         │\n└──────┬──────────────────────────────┘\n       │\n   /orders/* ──→ NEW OrderService\n   /everything-else ──→ LEGACY Monolith\n\nPhase 2: Migrate existing functionality incrementally\nPhase 3: Retire legacy components\nTimeline: Budget 18-24 months for meaningful decomposition\n```\n\n### Service Sizing Guidelines\n```\nSweet spot indicators:\n- 1-2 pizza teams can own it (4-8 people)\n- Deployable independently 2-3x per week\n- Single business capability\n- Own their data completely\n\nWarning signs service is too small:\n- Changes always require coordinating 3+ services\n- More boilerplate than business logic\n- Team context-switches constantly across services\n```\n\n---\n\n## Phase 2: Communication Patterns\n\n### Synchronous vs. Asynchronous Decision Framework\n\n```\nUse REST/gRPC when:\n- Immediate response required (user-facing queries)\n- Simple request/response\n- Client needs to know outcome immediately\n\nUse Message Queue (Kafka, RabbitMQ) when:\n- Operations can be eventually consistent\n- High throughput needed\n- Multiple services need same event\n- Fault tolerance matters more than latency\n\nReal example - Order Processing:\nPOST /orders  →  OrderService (sync, user needs order ID)\n    │\n    └── Publishes OrderCreated event (async)\n          ├── InventoryService (reserve items)\n          ├── NotificationService (email confirmation)\n          └── AnalyticsService (track conversion)\n```\n\n### gRPC for Internal Service Communication\n\n```protobuf\n// orders.proto - Define contract first\nsyntax = "proto3";\n\nservice OrderService {\n  rpc CreateOrder (CreateOrderRequest) returns (OrderResponse);\n  rpc GetOrder (GetOrderRequest) returns (OrderResponse);\n  rpc StreamOrderUpdates (GetOrderRequest) returns (stream OrderStatus);\n}\n\nmessage CreateOrderRequest {\n  string customer_id = 1;\n  repeated OrderItem items = 2;\n  string shipping_address = 3;\n}\n\nmessage OrderResponse {\n  string order_id = 1;\n  string status = 2;\n  double total_amount = 3;\n  google.protobuf.Timestamp created_at = 4;\n}\n```\n\n### Event-Driven Architecture with Kafka\n\n```python\n# Producer - OrderService\nfrom confluent_kafka import Producer\nimport json\n\nclass OrderEventPublisher:\n    def __init__(self):\n        self.producer = Producer({\n            \'bootstrap.servers\': \'kafka:9092\',\n            \'acks\': \'all\',  # Wait for all replicas\n            \'retries\': 3,\n            \'enable.idempotence\': True  # Prevent duplicate events\n        })\n    \n    def publish_order_created(self, order: Order):\n        event = {\n            \'event_type\': \'ORDER_CREATED\',\n            \'event_id\': str(uuid.uuid4()),  # Idempotency key\n            \'timestamp\': datetime.utcnow().isoformat(),\n            \'data\': {\n                \'', type='text')], model='claude-sonnet-4-6', role='assistant', stop_details=None, stop_reason='max_tokens', stop_sequence=None, type='message', usage=Usage(cache_creation=CacheCreation(ephemeral_1h_input_tokens=0, ephemeral_5m_input_tokens=0), cache_creation_input_tokens=0, cache_read_input_tokens=0, inference_geo='global', input_tokens=64, output_tokens=1024, server_tool_use=None, service_tier='standard')) 
+````python
+Message(
+    id="msg_01Wvup36sx4AxauuDL1dgH5R",
+    container=None,
+    content=[
+        TextBlock(
+            citations=None,
+            text="""
+# Microservices Architecture: Practical Implementation Guide
+
+## Starting Point: The Hard Truth
+
+Most teams underestimate microservices complexity by 3-5x.
+
+Before starting, answer honestly:
+Do you have the operational maturity to run distributed systems?
+
+Netflix took years and hundreds of engineers to perfect this.
+
+Start with a **modular monolith** and extract services only when you have clear, painful reasons to do so.
+
+---
+
+## Phase 1: Decomposition Strategy
+
+### Identify Service Boundaries (Domain-Driven Design)
+
+```text
+Bounded Context Mapping Exercise:
+
+1. Workshop with domain experts (2-3 days)
+2. Map business capabilities, NOT technical layers
+3. Identify where teams own what
+
+BAD decomposition (technical layers):
+├── UserInterfaceService
+├── BusinessLogicService
+└── DatabaseService
+
+GOOD decomposition (business capabilities):
+├── OrderManagement
+├── InventoryService
+├── PaymentProcessing
+├── NotificationService
+└── CustomerProfile
+````
+
+### The Strangler Fig Pattern (Real Migration Approach)
+
+```text
+Phase 1: Route new feature to microservice
+
+┌─────────────────────────────────────┐
+│         API Gateway / Proxy         │
+└──────┬──────────────────────────────┘
+       │
+       ├── /orders/*            → NEW OrderService
+       └── /everything-else     → LEGACY Monolith
+
+Phase 2:
+Migrate existing functionality incrementally
+
+Phase 3:
+Retire legacy components
+
+Timeline:
+Budget 18-24 months for meaningful decomposition
+```
+
+### Service Sizing Guidelines
+
+```text
+Sweet spot indicators:
+- 1-2 pizza teams can own it (4-8 people)
+- Deployable independently 2-3x per week
+- Single business capability
+- Own their data completely
+
+Warning signs service is too small:
+- Changes always require coordinating 3+ services
+- More boilerplate than business logic
+- Team context-switches constantly across services
+```
+
+---
+
+## Phase 2: Communication Patterns
+
+### Synchronous vs Asynchronous Decision Framework
+
+```text
+Use REST/gRPC when:
+- Immediate response required (user-facing queries)
+- Simple request/response
+- Client needs immediate outcome
+
+Use Message Queue (Kafka, RabbitMQ) when:
+- Operations can be eventually consistent
+- High throughput needed
+- Multiple services need same event
+- Fault tolerance matters more than latency
+
+Real example - Order Processing:
+
+POST /orders  →  OrderService (sync, user needs order ID)
+    │
+    └── Publishes OrderCreated event (async)
+            ├── InventoryService     (reserve items)
+            ├── NotificationService  (email confirmation)
+            └── AnalyticsService     (track conversion)
+```
+
+### gRPC for Internal Service Communication
+
+```protobuf
+// orders.proto - Define contract first
+
+syntax = "proto3";
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest)
+      returns (OrderResponse);
+
+  rpc GetOrder(GetOrderRequest)
+      returns (OrderResponse);
+
+  rpc StreamOrderUpdates(GetOrderRequest)
+      returns (stream OrderStatus);
+}
+
+message CreateOrderRequest {
+  string customer_id = 1;
+  repeated OrderItem items = 2;
+  string shipping_address = 3;
+}
+
+message OrderResponse {
+  string order_id = 1;
+  string status = 2;
+  double total_amount = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+```
+
+### Event-Driven Architecture with Kafka
+
+```python
+from confluent_kafka import Producer
+import json
+import uuid
+
+from datetime import datetime
+
+
+class OrderEventPublisher:
+    def __init__(self):
+        self.producer = Producer(
+            {
+                "bootstrap.servers": "kafka:9092",
+                "acks": "all",              # Wait for all replicas
+                "retries": 3,
+                "enable.idempotence": True # Prevent duplicate events
+            }
+        )
+
+    def publish_order_created(self, order):
+        event = {
+            "event_type": "ORDER_CREATED",
+            "event_id": str(uuid.uuid4()),  # Idempotency key
+            "timestamp": datetime.utcnow().isoformat(),
+            "data": {
+                "order_id": order.id,
+                "customer_id": order.customer_id,
+                "total_amount": order.total_amount,
+            },
+        }
+
+        self.producer.produce(
+            topic="orders",
+            key=order.id,
+            value=json.dumps(event),
+        )
+
+        self.producer.flush()
+```
+
+""",
+```
+    type="text",)
+    ],
+        model="claude-sonnet-4-6",
+        role="assistant",
+        stop_details=None,
+        stop_reason="max_tokens",
+        stop_sequence=None,
+        type="message",
+        usage=Usage(
+        cache_creation=CacheCreation(
+        ephemeral_1h_input_tokens=0,
+        ephemeral_5m_input_tokens=0,
+        ),
+        cache_creation_input_tokens=0,
+        cache_read_input_tokens=0,
+        inference_geo="global",
+        input_tokens=64,
+        output_tokens=1024,
+        server_tool_use=None,
+        service_tier="standard",
+    ),
+)
 ```
 
 [Hub] Received from spoke: practitioner

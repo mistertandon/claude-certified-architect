@@ -8,6 +8,7 @@ pattern programmatically with the Anthropic SDK.
 
 import os
 import json
+from pyexpat.errors import messages
 from dotenv import load_dotenv
 from anthropic import Anthropic
 
@@ -132,15 +133,19 @@ def run_agent():
     ]
 
     print("Starting agent with PostToolUse hook...\n")
-
     # Outer loop: keeps running until model stops requesting tools
+    counter = 0
     while True:
+        counter += 1
+        print(f"Iteration : {counter}\n")
+        print(f"Messages : {messages}\n")
         response = client.messages.create(
             model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),
             max_tokens=1024,
             tools=tools,
             messages=messages
         )
+        print(f"    Model response : {response}\n")
 
         # Check if model wants to use a tool
         if response.stop_reason == "tool_use":
@@ -153,11 +158,13 @@ def run_agent():
 
                     # Step 1: Execute the tool (raw output)
                     raw_output = execute_tool(block.name, block.input)
+                    print(f"    Raw output : {raw_output}\n")
 
                     # Step 2: PostToolUse hook — normalize BEFORE model sees it
                     # WHY here and not in the tool itself: separation of concerns.
                     # The hook is reusable across tools; tool logic stays pure.
                     normalized_output = post_tool_use_hook(block.name, raw_output)
+                    print(f"    Normalized output : {normalized_output}\n")
 
                     tool_results.append({
                         "type": "tool_result",
